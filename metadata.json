@@ -1,0 +1,7 @@
+{
+  "name": "O Melhor em Itupeva",
+  "description": "A comprehensive business directory for Itupeva-SP connecting local businesses with consumers and tourists.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
