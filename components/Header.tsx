@@ -1,25 +1,54 @@
 
 import React from 'react';
+import { Home, Star, Map, Calendar } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface HeaderProps {
   onHome: () => void;
+  onFeatured: () => void;
+  onTurismo: () => void;
+  onEventos: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onHome }) => {
+const Header: React.FC<HeaderProps> = ({ onHome, onFeatured, onTurismo, onEventos }) => {
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
       <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-2 cursor-pointer" onClick={onHome}>
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">I</div>
-          <div>
-            <h1 className="text-blue-600 font-bold text-lg leading-tight">O Melhor em</h1>
-            <h2 className="text-gray-800 font-semibold text-sm leading-tight">Itupeva</h2>
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="flex items-center space-x-3 cursor-pointer" 
+          onClick={onHome}
+        >
+          <img 
+            src="https://storage.googleapis.com/aistudio-build-assets/itupeva-logo.png" 
+            alt="O Melhor em Itupeva" 
+            className="w-16 h-16 object-contain"
+            referrerPolicy="no-referrer"
+          />
+          <div className="hidden sm:block">
+            <h1 className="text-blue-600 font-black text-2xl leading-tight tracking-tighter">O Melhor em</h1>
+            <h2 className="text-gray-900 font-bold text-xs leading-tight uppercase tracking-[0.3em]">Itupeva</h2>
           </div>
-        </div>
+        </motion.div>
+        
         <div className="hidden md:flex space-x-6">
-          <button onClick={onHome} className="text-gray-600 hover:text-blue-600 font-medium">Início</button>
-          <button className="text-gray-600 hover:text-blue-600 font-medium">Turismo</button>
-          <button className="text-gray-600 hover:text-blue-600 font-medium">Eventos</button>
+          <button onClick={onHome} className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 font-medium transition-colors">
+            <Home size={18} />
+            <span>Início</span>
+          </button>
+          <button onClick={onFeatured} className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 font-medium transition-colors">
+            <Star size={18} className="text-yellow-500 fill-yellow-500" />
+            <span>Destaque</span>
+          </button>
+          <button onClick={onTurismo} className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 font-medium transition-colors">
+            <Map size={18} />
+            <span>Turismo</span>
+          </button>
+          <button onClick={onEventos} className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 font-medium transition-colors">
+            <Calendar size={18} />
+            <span>Eventos</span>
+          </button>
         </div>
       </div>
     </header>

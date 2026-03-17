@@ -10,6 +10,8 @@ export interface User {
   favorites: string[]; // Business IDs
 }
 
+export type BusinessPlan = 'BRONZE' | 'PRATA' | 'OURO';
+
 export interface Business {
   id: string;
   name: string;
@@ -28,6 +30,9 @@ export interface Business {
   promotions?: string;
   rating: number;
   status: 'PENDING' | 'APPROVED';
+  isFeatured?: boolean;
+  plan: BusinessPlan;
+  gallery?: string[];
   createdAt: string;
 }
 

@@ -8,6 +8,9 @@ import UserForms from './components/UserForms';
 import BusinessForms from './components/BusinessForms';
 import AdminPanel from './components/AdminPanel';
 import Header from './components/Header';
+import FeaturedBusinesses from './components/FeaturedBusinesses';
+import Pricing from './components/Pricing';
+import { Home as HomeIcon, Star, Search, User as UserIcon, ArrowLeft, ShieldCheck } from 'lucide-react';
 
 const App: React.FC = () => {
   // Persistence state
@@ -17,10 +20,11 @@ const App: React.FC = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   
   // Navigation state
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'profile' | 'admin' | 'business-reg' | 'details'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'profile' | 'admin' | 'business-reg' | 'details' | 'featured' | 'pricing'>('home');
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
 
   // Load data from localStorage
   useEffect(() => {
@@ -53,9 +57,33 @@ const App: React.FC = () => {
   };
 
   const addBusiness = (biz: Business) => {
-    setBusinesses(prev => [...prev, biz]);
-    setActiveTab('home');
-    alert("Seu cadastro foi enviado para análise!");
+    if (editingBusiness) {
+      setBusinesses(prev => prev.map(b => b.id === biz.id ? biz : b));
+      setEditingBusiness(null);
+      setActiveTab('admin');
+      alert("Alterações salvas com sucesso!");
+    } else {
+      setBusinesses(prev => [...prev, biz]);
+      setActiveTab('home');
+      alert("Seu cadastro foi enviado para análise!");
+    }
+  };
+
+  const approveBusiness = (id: string) => {
+    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, status: 'APPROVED' } : b));
+  };
+
+  const rejectBusiness = (id: string) => {
+    setBusinesses(prev => prev.filter(b => b.id !== id));
+  };
+
+  const toggleFeatured = (id: string) => {
+    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, isFeatured: !b.isFeatured } : b));
+  };
+
+  const handleEditBusiness = (biz: Business) => {
+    setEditingBusiness(biz);
+    setActiveTab('business-reg');
   };
 
   const addReview = (review: Review) => {
@@ -89,8 +117,9 @@ const App: React.FC = () => {
               setActiveTab('search');
             }}
             onOpenRegisterUser={() => setActiveTab('profile')}
-            onOpenRegisterBusiness={() => setActiveTab('business-reg')}
+            onOpenRegisterBusiness={() => setActiveTab('pricing')}
             onOpenAdmin={() => setActiveTab('admin')}
+            onOpenFeatured={() => setActiveTab('featured')}
           />
         );
       case 'search':
@@ -102,22 +131,50 @@ const App: React.FC = () => {
             b.description.toLowerCase().includes(searchQuery.toLowerCase());
           return matchesStatus && matchesCat && matchesQuery;
         });
+
+        const sorted = [...filtered].sort((a, b) => {
+          const priority: Record<string, number> = { 'OURO': 3, 'PRATA': 2, 'BRONZE': 1 };
+          return (priority[b.plan] || 0) - (priority[a.plan] || 0);
+        });
+
         return (
           <div className="p-4 space-y-4 max-w-4xl mx-auto">
-            <button onClick={() => setActiveTab('home')} className="text-blue-600 font-medium mb-2">← Voltar</button>
+            <div className="flex justify-between items-center">
+              <button onClick={() => setActiveTab('home')} className="text-blue-600 font-medium flex items-center gap-1">
+                <ArrowLeft size={16} /> Voltar
+              </button>
+              <button 
+                onClick={() => setActiveTab('pricing')}
+                className="bg-orange-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-orange-700 transition-all"
+              >
+                Cadastrar Empresa
+              </button>
+            </div>
             <h2 className="text-2xl font-bold">Resultados para {selectedCategory || searchQuery || 'Tudo'}</h2>
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <p className="text-gray-500">Nenhuma empresa encontrada.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filtered.map(b => (
-                  <div key={b.id} onClick={() => navigateToDetails(b.id)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow">
-                    <img src={b.imageUrl} alt={b.name} className="w-full h-40 object-cover rounded-lg mb-3" />
-                    <h3 className="font-bold text-lg">{b.name}</h3>
+                {sorted.map(b => (
+                  <div key={b.id} onClick={() => navigateToDetails(b.id)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden group">
+                    {b.plan !== 'BRONZE' && (
+                      <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white p-1 rounded-full shadow-lg">
+                        <ShieldCheck size={14} fill="currentColor" className="text-white" />
+                      </div>
+                    )}
+                    <img src={b.imageUrl} alt={b.name} className="w-full h-40 object-cover rounded-lg mb-3 group-hover:scale-105 transition-transform duration-500" />
+                    <h3 className="font-bold text-lg flex items-center gap-1">
+                      {b.name}
+                    </h3>
                     <p className="text-sm text-gray-500">{b.category} • {b.address.split('-')[0]}</p>
-                    <div className="flex items-center mt-2">
-                      <span className="text-yellow-400">★</span>
-                      <span className="ml-1 text-sm font-medium">{b.rating.toFixed(1)}</span>
+                    <div className="flex items-center mt-2 justify-between">
+                      <div className="flex items-center">
+                        <span className="text-yellow-400">★</span>
+                        <span className="ml-1 text-sm font-medium">{b.rating.toFixed(1)}</span>
+                      </div>
+                      {b.plan === 'OURO' && (
+                        <span className="text-[9px] font-black uppercase tracking-widest text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full border border-yellow-100">Premium</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -164,16 +221,41 @@ const App: React.FC = () => {
         return (
           <BusinessForms 
             onSubmit={addBusiness} 
-            onBack={() => setActiveTab('home')} 
+            onBack={() => {
+              setEditingBusiness(null);
+              setActiveTab('home');
+            }} 
+            initialData={editingBusiness || undefined}
           />
         );
       case 'admin':
         return (
           <AdminPanel 
             businesses={businesses} 
-            onApprove={(id) => setBusinesses(prev => prev.map(b => b.id === id ? { ...b, status: 'APPROVED' } : b))}
-            onReject={(id) => setBusinesses(prev => prev.filter(b => b.id !== id))}
+            onApprove={approveBusiness}
+            onReject={rejectBusiness}
+            onToggleFeatured={toggleFeatured}
+            onEdit={handleEditBusiness}
             onBack={() => setActiveTab('home')}
+          />
+        );
+      case 'featured':
+        return (
+          <FeaturedBusinesses 
+            businesses={businesses}
+            onSelectBusiness={navigateToDetails}
+            onOpenRegisterBusiness={() => setActiveTab('pricing')}
+            onBack={() => setActiveTab('home')}
+          />
+        );
+      case 'pricing':
+        return (
+          <Pricing 
+            onSelectPlan={(plan) => {
+              console.log(`Selected plan: ${plan}`);
+              setActiveTab('business-reg');
+            }}
+            onBack={() => setActiveTab('featured')}
           />
         );
       default:
@@ -183,7 +265,20 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 md:pb-0">
-      <Header onHome={() => setActiveTab('home')} />
+      <Header 
+        onHome={() => setActiveTab('home')} 
+        onFeatured={() => setActiveTab('featured')}
+        onTurismo={() => {
+          setSelectedCategory('Turismo');
+          setSearchQuery('');
+          setActiveTab('search');
+        }}
+        onEventos={() => {
+          setSelectedCategory('Eventos');
+          setSearchQuery('');
+          setActiveTab('search');
+        }}
+      />
       <main className="animate-fadeIn">
         {renderContent()}
       </main>
@@ -191,16 +286,20 @@ const App: React.FC = () => {
       {/* Mobile Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 md:hidden z-50">
         <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center ${activeTab === 'home' ? 'text-blue-600' : 'text-gray-400'}`}>
-          <span className="text-xl">🏠</span>
-          <span className="text-[10px]">Início</span>
+          <HomeIcon size={20} />
+          <span className="text-[10px] mt-1">Início</span>
+        </button>
+        <button onClick={() => setActiveTab('featured')} className={`flex flex-col items-center ${activeTab === 'featured' ? 'text-blue-600' : 'text-gray-400'}`}>
+          <Star size={20} className={activeTab === 'featured' ? 'fill-blue-600' : ''} />
+          <span className="text-[10px] mt-1">Destaque</span>
         </button>
         <button onClick={() => setActiveTab('search')} className={`flex flex-col items-center ${activeTab === 'search' ? 'text-blue-600' : 'text-gray-400'}`}>
-          <span className="text-xl">🔎</span>
-          <span className="text-[10px]">Buscar</span>
+          <Search size={20} />
+          <span className="text-[10px] mt-1">Buscar</span>
         </button>
         <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center ${activeTab === 'profile' ? 'text-blue-600' : 'text-gray-400'}`}>
-          <span className="text-xl">👤</span>
-          <span className="text-[10px]">Perfil</span>
+          <UserIcon size={20} />
+          <span className="text-[10px] mt-1">Perfil</span>
         </button>
       </nav>
     </div>

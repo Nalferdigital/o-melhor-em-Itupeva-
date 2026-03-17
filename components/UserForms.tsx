@@ -68,6 +68,14 @@ const UserForms: React.FC<UserFormsProps> = ({ user, onLogin, onLogout, onBack, 
 
   return (
     <div className="max-w-md mx-auto px-4 py-12">
+      <div className="flex justify-center mb-8">
+        <img 
+          src="https://storage.googleapis.com/aistudio-build-assets/itupeva-logo.png" 
+          alt="O Melhor em Itupeva" 
+          className="w-24 h-24 object-contain"
+          referrerPolicy="no-referrer"
+        />
+      </div>
       <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
         <h2 className="text-2xl font-bold text-center mb-8">{isRegister ? 'Criar Conta' : 'Acessar Conta'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
