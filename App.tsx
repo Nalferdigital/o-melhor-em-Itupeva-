@@ -42,11 +42,18 @@ const App: React.FC = () => {
 
   // Auth listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (user) {
         // Fetch user profile from Firestore
         const userRef = doc(db, 'users', user.uid);
-        onSnapshot(userRef, (docSnap) => {
+        unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             setCurrentUser(docSnap.data() as User);
             setFavorites((docSnap.data() as User).favorites || []);
@@ -56,6 +63,7 @@ const App: React.FC = () => {
           }
           setIsAuthReady(true);
         }, (error) => {
+          if (error.message.includes('aborted')) return;
           handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
         });
       } else {
@@ -64,28 +72,43 @@ const App: React.FC = () => {
         setIsAuthReady(true);
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   // Firestore listeners for businesses and reviews
   useEffect(() => {
+    if (!isAuthReady) return;
+
     const businessesRef = collection(db, 'businesses');
     const unsubscribeBusinesses = onSnapshot(businessesRef, async (snapshot) => {
       let bizData = snapshot.docs.map(doc => doc.data() as Business);
       
-      // Seed with MOCK_BUSINESSES if Firestore is empty
-      if (bizData.length === 0 && isAuthReady) {
+      // Only seed if Firestore is empty AND user is an admin
+      if (bizData.length === 0 && currentUser?.role === 'ADMIN') {
         try {
+          console.log("Seeding businesses...");
           for (const biz of MOCK_BUSINESSES) {
             await setDoc(doc(db, 'businesses', biz.id), biz);
           }
-          // The listener will trigger again with the new data
         } catch (error) {
           console.error("Seeding error:", error);
         }
       }
-      setBusinesses(bizData);
+      
+      // If Firestore is empty and user is NOT an admin, show mock data locally
+      // so the app doesn't look empty for the first visitor
+      if (bizData.length === 0 && !currentUser) {
+        setBusinesses(MOCK_BUSINESSES);
+      } else {
+        setBusinesses(bizData);
+      }
     }, (error) => {
+      // Ignore "The user aborted a request" errors which are common during HMR/unmounts
+      if (error.message.includes('aborted')) return;
       handleFirestoreError(error, OperationType.LIST, 'businesses');
     });
 
@@ -94,6 +117,7 @@ const App: React.FC = () => {
       const reviewData = snapshot.docs.map(doc => doc.data() as Review);
       setReviews(reviewData);
     }, (error) => {
+      if (error.message.includes('aborted')) return;
       handleFirestoreError(error, OperationType.LIST, 'reviews');
     });
 
@@ -101,7 +125,7 @@ const App: React.FC = () => {
       unsubscribeBusinesses();
       unsubscribeReviews();
     };
-  }, [isAuthReady]);
+  }, [isAuthReady, currentUser?.role]);
 
   const handleLogin = async (user: User) => {
     try {
