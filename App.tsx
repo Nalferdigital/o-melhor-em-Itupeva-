@@ -11,13 +11,27 @@ import Header from './components/Header';
 import FeaturedBusinesses from './components/FeaturedBusinesses';
 import Pricing from './components/Pricing';
 import { Home as HomeIcon, Star, Search, User as UserIcon, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { auth, db, handleFirestoreError, OperationType } from './src/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where,
+  orderBy
+} from 'firebase/firestore';
 
 const App: React.FC = () => {
   // Persistence state
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [businesses, setBusinesses] = useState<Business[]>(MOCK_BUSINESSES);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   
   // Navigation state
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'profile' | 'admin' | 'business-reg' | 'details' | 'featured' | 'pricing'>('home');
@@ -26,59 +40,135 @@ const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
 
-  // Load data from localStorage
+  // Auth listener
   useEffect(() => {
-    const savedBusinesses = localStorage.getItem('itupeva_businesses');
-    if (savedBusinesses) setBusinesses(JSON.parse(savedBusinesses));
-
-    const savedUser = localStorage.getItem('itupeva_user');
-    if (savedUser) setCurrentUser(JSON.parse(savedUser));
-
-    const savedReviews = localStorage.getItem('itupeva_reviews');
-    if (savedReviews) setReviews(JSON.parse(savedReviews));
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // Fetch user profile from Firestore
+        const userRef = doc(db, 'users', user.uid);
+        onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setCurrentUser(docSnap.data() as User);
+            setFavorites((docSnap.data() as User).favorites || []);
+          } else {
+            // New user, profile will be created on first login/register
+            setCurrentUser(null);
+          }
+          setIsAuthReady(true);
+        }, (error) => {
+          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+        });
+      } else {
+        setCurrentUser(null);
+        setFavorites([]);
+        setIsAuthReady(true);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Save data to localStorage
+  // Firestore listeners for businesses and reviews
   useEffect(() => {
-    localStorage.setItem('itupeva_businesses', JSON.stringify(businesses));
-    localStorage.setItem('itupeva_reviews', JSON.stringify(reviews));
-  }, [businesses, reviews]);
+    const businessesRef = collection(db, 'businesses');
+    const unsubscribeBusinesses = onSnapshot(businessesRef, async (snapshot) => {
+      let bizData = snapshot.docs.map(doc => doc.data() as Business);
+      
+      // Seed with MOCK_BUSINESSES if Firestore is empty
+      if (bizData.length === 0 && isAuthReady) {
+        try {
+          for (const biz of MOCK_BUSINESSES) {
+            await setDoc(doc(db, 'businesses', biz.id), biz);
+          }
+          // The listener will trigger again with the new data
+        } catch (error) {
+          console.error("Seeding error:", error);
+        }
+      }
+      setBusinesses(bizData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'businesses');
+    });
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem('itupeva_user', JSON.stringify(user));
-    setActiveTab('home');
-  };
+    const reviewsRef = collection(db, 'reviews');
+    const unsubscribeReviews = onSnapshot(reviewsRef, (snapshot) => {
+      const reviewData = snapshot.docs.map(doc => doc.data() as Review);
+      setReviews(reviewData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'reviews');
+    });
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('itupeva_user');
-    setActiveTab('home');
-  };
+    return () => {
+      unsubscribeBusinesses();
+      unsubscribeReviews();
+    };
+  }, [isAuthReady]);
 
-  const addBusiness = (biz: Business) => {
-    if (editingBusiness) {
-      setBusinesses(prev => prev.map(b => b.id === biz.id ? biz : b));
-      setEditingBusiness(null);
-      setActiveTab('admin');
-      alert("Alterações salvas com sucesso!");
-    } else {
-      setBusinesses(prev => [...prev, biz]);
+  const handleLogin = async (user: User) => {
+    try {
+      const userRef = doc(db, 'users', user.id);
+      await setDoc(userRef, user, { merge: true });
+      setCurrentUser(user);
       setActiveTab('home');
-      alert("Seu cadastro foi enviado para análise!");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
     }
   };
 
-  const approveBusiness = (id: string) => {
-    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, status: 'APPROVED' } : b));
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      setCurrentUser(null);
+      setActiveTab('home');
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
-  const rejectBusiness = (id: string) => {
-    setBusinesses(prev => prev.filter(b => b.id !== id));
+  const addBusiness = async (biz: Business) => {
+    try {
+      const bizRef = doc(db, 'businesses', biz.id);
+      await setDoc(bizRef, biz);
+      
+      if (editingBusiness) {
+        setEditingBusiness(null);
+        setActiveTab('admin');
+        alert("Alterações salvas com sucesso!");
+      } else {
+        setActiveTab('home');
+        alert("Seu cadastro foi enviado para análise!");
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `businesses/${biz.id}`);
+    }
   };
 
-  const toggleFeatured = (id: string) => {
-    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, isFeatured: !b.isFeatured } : b));
+  const approveBusiness = async (id: string) => {
+    try {
+      const bizRef = doc(db, 'businesses', id);
+      await updateDoc(bizRef, { status: 'APPROVED' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `businesses/${id}`);
+    }
+  };
+
+  const rejectBusiness = async (id: string) => {
+    try {
+      const bizRef = doc(db, 'businesses', id);
+      await deleteDoc(bizRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `businesses/${id}`);
+    }
+  };
+
+  const toggleFeatured = async (id: string) => {
+    try {
+      const biz = businesses.find(b => b.id === id);
+      if (!biz) return;
+      const bizRef = doc(db, 'businesses', id);
+      await updateDoc(bizRef, { isFeatured: !biz.isFeatured });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `businesses/${id}`);
+    }
   };
 
   const handleEditBusiness = (biz: Business) => {
@@ -86,14 +176,28 @@ const App: React.FC = () => {
     setActiveTab('business-reg');
   };
 
-  const addReview = (review: Review) => {
-    setReviews(prev => [...prev, review]);
+  const addReview = async (review: Review) => {
+    try {
+      const reviewRef = doc(db, 'reviews', review.id);
+      await setDoc(reviewRef, review);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `reviews/${review.id}`);
+    }
   };
 
-  const toggleFavorite = (bizId: string) => {
-    setFavorites(prev => 
-      prev.includes(bizId) ? prev.filter(id => id !== bizId) : [...prev, bizId]
-    );
+  const toggleFavorite = async (bizId: string) => {
+    if (!currentUser) return alert("Faça login para favoritar");
+    try {
+      const newFavorites = favorites.includes(bizId) 
+        ? favorites.filter(id => id !== bizId) 
+        : [...favorites, bizId];
+      
+      const userRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userRef, { favorites: newFavorites });
+      setFavorites(newFavorites);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.id}`);
+    }
   };
 
   const navigateToDetails = (id: string) => {

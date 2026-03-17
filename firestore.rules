@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - name: string (required)
+    //   - email: string (required, format: email)
+    //   - phone: string (optional)
+    //   - role: string (required, enum: ["CONSUMER", "BUSINESS", "ADMIN"])
+    //   - favorites: list (optional, items: string)
+    //
+    // Collection: businesses
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - name: string (required)
+    //   - ownerName: string (required)
+    //   - cnpj: string (optional)
+    //   - phone: string (required)
+    //   - whatsapp: string (optional)
+    //   - email: string (required, format: email)
+    //   - address: string (required)
+    //   - category: string (required)
+    //   - description: string (required)
+    //   - imageUrl: string (optional)
+    //   - instagram: string (optional)
+    //   - facebook: string (optional)
+    //   - website: string (optional)
+    //   - promotions: string (optional)
+    //   - rating: number (optional)
+    //   - status: string (required, enum: ["PENDING", "APPROVED"])
+    //   - isFeatured: bool (optional)
+    //   - plan: string (required, enum: ["BRONZE", "PRATA", "OURO"])
+    //   - gallery: list (optional, items: string)
+    //   - createdAt: string (required, format: date)
+    //
+    // Collection: reviews
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - businessId: string (required)
+    //   - userId: string (required, immutable)
+    //   - userName: string (required)
+    //   - rating: number (required, range: 1-5)
+    //   - comment: string (optional)
+    //   - date: string (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+          (request.auth.token.email == "contato@nalferdigital.com.br" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['id', 'name', 'email', 'role']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['CONSUMER', 'BUSINESS', 'ADMIN'];
+    }
+
+    function isValidBusiness(data) {
+      return hasRequiredFields(['id', 'name', 'ownerName', 'category', 'status', 'plan']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.ownerName is string && data.ownerName.size() > 0 &&
+             data.category is string &&
+             data.status in ['PENDING', 'APPROVED'] &&
+             data.plan in ['BRONZE', 'PRATA', 'OURO'];
+    }
+
+    function isValidReview(data) {
+      return hasRequiredFields(['id', 'businessId', 'userId', 'rating']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.businessId is string &&
+             data.userId is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+    }
+
+    match /businesses/{businessId} {
+      allow read: if true; // Public directory
+      allow create: if isAuthenticated() && isValidBusiness(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || (isValidBusiness(request.resource.data) && request.resource.data.ownerId == request.auth.uid));
+      allow delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidReview(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && isValidReview(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+    }
+  }
+}

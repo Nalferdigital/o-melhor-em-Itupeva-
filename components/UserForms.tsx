@@ -1,6 +1,14 @@
 
 import React, { useState } from 'react';
 import { User, Business } from '../types';
+import { auth, db, handleFirestoreError, OperationType } from '../src/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider 
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface UserFormsProps {
   user: User | null;
@@ -14,18 +22,62 @@ interface UserFormsProps {
 const UserForms: React.FC<UserFormsProps> = ({ user, onLogin, onLogout, onBack, favorites, onSelectBusiness }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate auth
-    onLogin({
-      id: Date.now().toString(),
-      name: form.name || 'Usuário Teste',
-      email: form.email,
-      phone: form.phone,
-      role: 'CONSUMER',
-      favorites: []
-    });
+    setLoading(true);
+    try {
+      let userCredential;
+      if (isRegister) {
+        userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
+        const newUser: User = {
+          id: userCredential.user.uid,
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          role: 'CONSUMER',
+          favorites: []
+        };
+        await onLogin(newUser);
+      } else {
+        userCredential = await signInWithEmailAndPassword(auth, form.email, form.password);
+        // User profile will be fetched by App.tsx listener
+      }
+    } catch (error) {
+      alert("Erro na autenticação: " + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      // Check if user profile exists
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        const newUser: User = {
+          id: user.uid,
+          name: user.displayName || 'Usuário Google',
+          email: user.email || '',
+          phone: '',
+          role: 'CONSUMER',
+          favorites: []
+        };
+        await onLogin(newUser);
+      }
+    } catch (error) {
+      alert("Erro no login com Google: " + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (user) {
@@ -117,10 +169,34 @@ const UserForms: React.FC<UserFormsProps> = ({ user, onLogin, onLogout, onBack, 
               onChange={e => setForm({...form, password: e.target.value})}
             />
           </div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors mt-4">
-            {isRegister ? 'Cadastrar' : 'Entrar'}
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors mt-4 disabled:opacity-50"
+          >
+            {loading ? 'Carregando...' : (isRegister ? 'Cadastrar' : 'Entrar')}
           </button>
         </form>
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-100"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Ou continue com</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="mt-6 w-full flex items-center justify-center gap-3 bg-white border border-gray-200 text-gray-700 py-4 rounded-2xl font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+            Google
+          </button>
+        </div>
         <div className="mt-8 text-center text-sm text-gray-500">
           {isRegister ? 'Já possui conta?' : 'Ainda não tem conta?'} 
           <button onClick={() => setIsRegister(!isRegister)} className="ml-1 text-blue-600 font-bold hover:underline">

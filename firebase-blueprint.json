@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "phone": { "type": "string", "description": "User's phone number" },
+        "role": { "type": "string", "enum": ["CONSUMER", "BUSINESS", "ADMIN"], "description": "User's role" },
+        "favorites": { "type": "array", "items": { "type": "string" }, "description": "List of favorite business IDs" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Business": {
+      "title": "Business",
+      "description": "Business directory entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique business ID" },
+        "name": { "type": "string", "description": "Business name" },
+        "ownerName": { "type": "string", "description": "Owner's name" },
+        "cnpj": { "type": "string", "description": "CNPJ (optional)" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "whatsapp": { "type": "string", "description": "WhatsApp number" },
+        "email": { "type": "string", "format": "email", "description": "Business email" },
+        "address": { "type": "string", "description": "Physical address" },
+        "category": { "type": "string", "description": "Business category" },
+        "description": { "type": "string", "description": "Business description" },
+        "imageUrl": { "type": "string", "description": "Main image URL" },
+        "instagram": { "type": "string", "description": "Instagram handle" },
+        "facebook": { "type": "string", "description": "Facebook page" },
+        "website": { "type": "string", "description": "Website URL" },
+        "promotions": { "type": "string", "description": "Current promotions" },
+        "rating": { "type": "number", "description": "Average rating" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED"], "description": "Approval status" },
+        "isFeatured": { "type": "boolean", "description": "Whether the business is featured" },
+        "plan": { "type": "string", "enum": ["BRONZE", "PRATA", "OURO"], "description": "Subscription plan" },
+        "gallery": { "type": "array", "items": { "type": "string" }, "description": "Gallery image URLs" },
+        "createdAt": { "type": "string", "format": "date", "description": "Registration date" }
+      },
+      "required": ["id", "name", "ownerName", "category", "status", "plan"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User review for a business",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique review ID" },
+        "businessId": { "type": "string", "description": "Business being reviewed" },
+        "userId": { "type": "string", "description": "User who wrote the review" },
+        "userName": { "type": "string", "description": "User's name" },
+        "rating": { "type": "number", "description": "Star rating (1-5)" },
+        "comment": { "type": "string", "description": "Review comment" },
+        "date": { "type": "string", "description": "Review date" }
+      },
+      "required": ["id", "businessId", "userId", "rating"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/businesses/{businessId}": {
+      "schema": "Business",
+      "description": "Business directory documents"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Business review documents"
+    }
+  }
+}
