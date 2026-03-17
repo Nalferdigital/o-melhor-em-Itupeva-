@@ -20,12 +20,7 @@ const Header: React.FC<HeaderProps> = ({ onHome, onFeatured, onTurismo, onEvento
           className="flex items-center space-x-3 cursor-pointer" 
           onClick={onHome}
         >
-          <img 
-            src="https://storage.googleapis.com/aistudio-build-assets/itupeva-logo.png" 
-            alt="O Melhor em Itupeva" 
-            className="w-16 h-16 object-contain"
-            referrerPolicy="no-referrer"
-          />
+          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl flex-shrink-0 shadow-sm">I</div>
           <div className="hidden sm:block">
             <h1 className="text-blue-600 font-black text-2xl leading-tight tracking-tighter">O Melhor em</h1>
             <h2 className="text-gray-900 font-bold text-xs leading-tight uppercase tracking-[0.3em]">Itupeva</h2>

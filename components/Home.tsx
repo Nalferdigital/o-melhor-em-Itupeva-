@@ -49,12 +49,7 @@ const Home: React.FC<HomeProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           className="flex justify-center mb-4"
         >
-          <img 
-            src="https://storage.googleapis.com/aistudio-build-assets/itupeva-logo.png" 
-            alt="O Melhor em Itupeva" 
-            className="w-32 h-32 object-contain"
-            referrerPolicy="no-referrer"
-          />
+          <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center text-white font-black text-5xl shadow-xl">I</div>
         </motion.div>
         <motion.h2 
           initial={{ opacity: 0, y: 20 }}

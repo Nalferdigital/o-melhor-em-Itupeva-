@@ -129,12 +129,7 @@ const BusinessForms: React.FC<BusinessFormsProps> = ({ onSubmit, onBack, initial
         className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-gray-100"
       >
         <div className="mb-10 flex flex-col items-center text-center">
-          <img 
-            src="https://storage.googleapis.com/aistudio-build-assets/itupeva-logo.png" 
-            alt="O Melhor em Itupeva" 
-            className="w-24 h-24 object-contain mb-4"
-            referrerPolicy="no-referrer"
-          />
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-3xl mb-4 shadow-lg">I</div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
             {initialData ? 'Editar Empresa' : 'Cadastrar minha Empresa'}
           </h2>
